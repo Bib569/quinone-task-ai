@@ -133,8 +133,12 @@ export default function App() {
       }
       updateState({ moleculeResult: data, step: 2, loading: false })
     } catch (error) {
+      const raw = error instanceof Error ? error.message : 'Analysis failed'
+      const is502 = raw.includes('502') || raw.toLowerCase().includes('overloaded')
       updateState({
-        error: error instanceof Error ? error.message : 'Analysis failed',
+        error: is502
+          ? '⚠️ OpenRouter free router temporarily overloaded (502). The server retried 3× automatically. Please try again in a few seconds.'
+          : raw,
         loading: false,
       })
     }
@@ -169,8 +173,12 @@ export default function App() {
 
       updateState({ llmReport: report, llmThinking: thinking, step: 4, loading: false })
     } catch (error) {
+      const raw = error instanceof Error ? error.message : 'Report generation failed'
+      const is502 = raw.includes('502') || raw.toLowerCase().includes('overloaded')
       updateState({
-        error: error instanceof Error ? error.message : 'Report generation failed',
+        error: is502
+          ? '⚠️ OpenRouter free router temporarily overloaded (502). The server retried 3× automatically. Please click "Generate AI Report" again in a few seconds.'
+          : raw,
         loading: false,
       })
     }
