@@ -2,8 +2,9 @@ import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { Atom, FlaskConical, Search, ArrowRight, ArrowLeft, Download, Loader2, BarChart3, FileText, Beaker, Sparkles, CheckCircle2, AlertCircle, Home, BookOpen } from 'lucide-react'
+import { Atom, FlaskConical, Search, ArrowRight, ArrowLeft, Loader2, BarChart3, FileText, Beaker, Sparkles, CheckCircle2, AlertCircle, Home, BookOpen } from 'lucide-react'
 import MethodsLibrary from './components/MethodsLibrary'
+import ExportMenu from './components/ExportMenu'
 import { QUINONE_DATASET, findQuinone, type QuinoneEntry } from './lib/quinoneData'
 
 interface PredictedData {
@@ -545,10 +546,14 @@ export default function App() {
                 className="px-4 py-2.5 rounded-xl bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm">
                 <ArrowLeft size={16} /> Back
               </button>
-              <button onClick={exportResults}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-600/20">
-                <Download size={16} /> Export Results (JSON)
-              </button>
+              <div className="flex-1">
+                <ExportMenu
+                  title={`QuantumTask Report — ${state.moleculeName || state.smiles}`}
+                  markdownContent={state.llmReport}
+                  baseFilename={`quantumtask_${(state.moleculeName || state.smiles).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30)}`}
+                  fullWidth
+                />
+              </div>
             </div>
           </div>
         )}
