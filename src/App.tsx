@@ -2,7 +2,8 @@ import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { Atom, FlaskConical, Search, ArrowRight, ArrowLeft, Download, Loader2, BarChart3, FileText, Beaker, Sparkles, CheckCircle2, AlertCircle, Home } from 'lucide-react'
+import { Atom, FlaskConical, Search, ArrowRight, ArrowLeft, Download, Loader2, BarChart3, FileText, Beaker, Sparkles, CheckCircle2, AlertCircle, Home, BookOpen } from 'lucide-react'
+import MethodsLibrary from './components/MethodsLibrary'
 import { QUINONE_DATASET, findQuinone, type QuinoneEntry } from './lib/quinoneData'
 
 interface PredictedData {
@@ -98,6 +99,7 @@ function PropertyCard({ label, value, unit }: { label: string; value: string | n
 }
 
 export default function App() {
+  const [showLibrary, setShowLibrary] = useState(false)
   const [state, setState] = useState<AnalysisState>({
     step: 1,
     smiles: '',
@@ -551,14 +553,24 @@ export default function App() {
           </div>
         )}
 
+        {/* Methods Library Button */}
+        <div className="mt-8 text-center">
+          <button onClick={() => setShowLibrary(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-quantum-600/10 border border-quantum-500/30 text-quantum-300 hover:bg-quantum-600/20 transition-colors text-xs font-medium mb-4">
+            <BookOpen size={13} /> Open QC Methods Library
+          </button>
+        </div>
+
         {/* Footer */}
-        <div className="mt-12 text-center">
+        <div className="mt-2 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900 border border-gray-800 text-xs text-gray-500">
             <Beaker size={12} />
             Powered by OpenRouter Free Router via OpenRouter | DFT B3LYP/6-31G* quinone dataset (25 molecules) | PubChem API
           </div>
         </div>
       </main>
+
+      {showLibrary && <MethodsLibrary onClose={() => setShowLibrary(false)} />}
     </div>
   )
 }
