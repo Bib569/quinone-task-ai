@@ -125,9 +125,12 @@ export default async (req: Request) => {
       temperature: 0.7,
     };
 
-    // Qwen3 supports thinking mode via thinking parameter
+    // Qwen3 32B supports reasoning via reasoning_effort + reasoning_format
+    // reasoning_effort: 'default' enables reasoning; 'none' disables it
+    // reasoning_format: 'parsed' returns reasoning in message.reasoning field
     if (thinkingEnabled && model === 'qwen/qwen3-32b') {
-      requestBody.thinking = { type: 'enabled', budget_tokens: 2048 };
+      requestBody.reasoning_effort = 'default';
+      requestBody.reasoning_format = 'parsed';
     }
 
     const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
