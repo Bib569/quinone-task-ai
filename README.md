@@ -4,7 +4,7 @@
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-quinone--task--ai.netlify.app-6366f1)](https://quinone-task-ai.netlify.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A task-oriented, step-by-step molecular analysis tool for quinone derivatives and arbitrary SMILES molecules. Powered by the **OpenRouter Free Router** via the OpenRouter API.
+A task-oriented, step-by-step molecular analysis tool for quinone derivatives and arbitrary SMILES molecules. Powered by the **Groq API** with selectable free-plan models (Kimi K2, Llama 3.3 70B, Qwen3 32B, GPT-OSS 120B) and optional thinking mode.
 
 **🔗 Live Demo:** [https://quinone-task-ai.netlify.app](https://quinone-task-ai.netlify.app)  
 **🔗 Companion App (chat-based):** [QuantumChat](https://github.com/Bib569/quinone-chat-ai)
@@ -23,23 +23,28 @@ A task-oriented, step-by-step molecular analysis tool for quinone derivatives an
 | **AI Report** | Publication-quality chemistry report with method recommendations |
 | **QC Methods Library** | Searchable panel: 20+ methods, 25+ functionals, 18+ basis sets |
 | **Export Report** | Download report as **Markdown**, **PDF**, or **Word (.docx)** |
+| **Model Selector** | Dropdown in header to switch between 4 Groq models (Kimi K2, Llama 3.3 70B, Qwen3 32B, GPT-OSS 120B) |
+| **Thinking Mode** | Toggle beside model selector — enabled for Qwen3 32B; reasoning shown in collapsible panel |
 | **Auto-retry** | Server retries up to 3× on 502/503/429 errors automatically |
 
 ---
 
-## ⚠️ Known Issue: 502 Errors (Free Tier)
+## ⚠️ Rate Limits (Groq Free Plan)
 
-> **The OpenRouter Free Router is occasionally overloaded**, returning HTTP 502 or empty responses. This is a known limitation of free-tier LLM routing.
+Groq's free plan has per-minute token limits per model. If you hit a rate limit (HTTP 429):
 
-**What happens automatically:**
-- The server retries **up to 3 times** with 1.2 s / 2.4 s backoff before returning an error.
+1. **Wait 10–30 seconds** and click **Generate AI Report** again — limits reset quickly.
+2. **Switch to a different model** using the dropdown in the header.
+3. The server retries **up to 3 times** automatically before surfacing an error.
 
-**What to do if you see a 502 error:**
-1. **Click "Generate AI Report" again** — the router usually recovers within seconds.
-2. If errors persist, wait **30–60 seconds** and try again.
-3. Peak hours (UTC 14:00–22:00) have higher failure rates.
+| Model | Free RPM | Free TPM |
+|-------|----------|----------|
+| Kimi K2 (`moonshotai/kimi-k2-instruct`) | varies | varies |
+| Llama 3.3 70B (`llama-3.3-70b-versatile`) | 30 | 6,000 |
+| Qwen3 32B (`qwen/qwen3-32b`) | 30 | 6,000 |
+| GPT-OSS 120B (`openai/gpt-oss-120b`) | varies | varies |
 
-This limitation is inherent to free-tier AI routing and cannot be fully eliminated without a paid API plan.
+> Check current limits at [console.groq.com/settings/limits](https://console.groq.com/settings/limits)
 
 ---
 
@@ -61,7 +66,7 @@ This limitation is inherent to free-tier AI routing and cannot be fully eliminat
    │  ┌──────────────────────┐  ┌─────────────────────┐ │
    │  │  /analyze            │  │  /report            │ │
    │  │  • PubChem lookup    │  │  • 3× retry         │ │
-   │  │  • DFT dataset match │  │  • OpenRouter API   │ │
+   │  │  • DFT dataset match │  │  • Groq API         │ │
    │  │  • k-NN prediction   │  │  • System prompt    │ │
    │  └──────────────────────┘  └─────────────────────┘ │
    └────────────────────────────────────────────────────┘
@@ -94,7 +99,8 @@ The LLM report generator has **PhD-level expertise** covering:
 | Markdown | react-markdown + remark-gfm | 9 / 4 |
 | Export | jsPDF + docx | latest |
 | Backend | Netlify Functions (serverless) | — |
-| LLM | OpenRouter Free Router | `openrouter/free` |
+| LLM | Groq API (free plan) | `api.groq.com` |
+| Models | Kimi K2, Llama 3.3 70B, Qwen3 32B, GPT-OSS 120B | selectable |
 | Chemistry | PubChem PUG-REST API | — |
 | Dataset | 25 quinones DFT B3LYP/6-31G* | — |
 | Hosting | Netlify (free tier) | — |
@@ -109,12 +115,12 @@ cd quinone-task-ai
 npm install
 ```
 
-Create a `.env` file in the project root:
+The Groq API key is embedded in the serverless function for the free plan. To use your own key, set it as an environment variable:
 ```env
-OPENROUTER_API_KEY=your_openrouter_api_key_here
+GROQ_API_KEY=your_groq_api_key_here
 ```
 
-> Get a free API key at [openrouter.ai/keys](https://openrouter.ai/keys)
+> Get a free API key at [console.groq.com/keys](https://console.groq.com/keys)
 
 Run locally with Netlify CLI (required for serverless functions):
 ```bash
@@ -137,9 +143,9 @@ netlify deploy --prod --dir=dist
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `OPENROUTER_API_KEY` | ✅ Yes | API key from [openrouter.ai](https://openrouter.ai) |
+| `GROQ_API_KEY` | Optional | Override the built-in Groq API key. Get one at [console.groq.com/keys](https://console.groq.com/keys) |
 
-Set this in the **Netlify dashboard → Site settings → Environment variables** for production.
+The default key is embedded in `netlify/functions/report.ts` for the free plan. For production with your own key, set it in **Netlify dashboard → Site settings → Environment variables** and update `report.ts` to read `process.env.GROQ_API_KEY`.
 
 ---
 
@@ -214,11 +220,12 @@ Uncertainty: ±0.3–0.5 eV typical. Displayed as orange bar in the chart with a
 
 1. **Task-oriented UX** — Step-by-step wizard guides users through a structured analysis pipeline
 2. **Recharts visualization** — Interactive bar chart with family-based color coding and tooltip
-3. **Serverless backend** — Netlify Functions secure the API key; no CORS issues
-4. **3× auto-retry** — Transparent server-side retry absorbs most transient 502/503 failures
-5. **Embedded dataset** — Zero-latency DFT lookups without a database
-6. **Multi-format export** — jsPDF + docx for offline archival of AI reports
-7. **No thinking toggle** — Removed in final release; free-tier models don't support reliable reasoning mode
+3. **Groq backend** — Netlify Functions keep the API key server-side; OpenAI-compatible endpoint, no CORS issues
+4. **Model selector** — Dropdown in header right-hand side; auto-disables thinking toggle for non-supporting models
+5. **Thinking toggle** — Purple brain icon for Qwen3 32B; sends `thinking: {type: 'enabled', budget_tokens: 2048}` to Groq
+6. **3× auto-retry** — Transparent server-side retry with 1.5 s / 3.0 s backoff; handles 429/502/503
+7. **Embedded dataset** — Zero-latency DFT lookups without a database
+8. **Multi-format export** — jsPDF (Latin-1 sanitised) + docx for offline archival of AI reports
 
 ---
 
@@ -226,6 +233,8 @@ Uncertainty: ±0.3–0.5 eV typical. Displayed as orange bar in the chart with a
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.6.0 | Mar 2026 | **Groq API migration**: model selector dropdown (Kimi K2 / Llama 3.3 / Qwen3 / GPT-OSS), thinking mode toggle for Qwen3 32B, 429 rate-limit error handling |
+| 1.5.0 | Mar 2026 | PDF export garbled character fix (`sanitiseForPDF` Latin-1 sanitisation) |
 | 1.4.0 | Mar 2026 | Server-side 3× retry for 502/503/429; improved error messages |
 | 1.3.0 | Mar 2026 | Multi-format export (MD/PDF/DOCX) replaces JSON export |
 | 1.2.0 | Mar 2026 | QC Methods Library panel; comprehensive knowledge base in report prompt |
