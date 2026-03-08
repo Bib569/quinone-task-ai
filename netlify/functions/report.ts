@@ -70,15 +70,7 @@ export default async (req: Request) => {
   }
 
   try {
-    const { smiles, moleculeName, moleculeResult, thinking } = await req.json();
-    const apiKey = process.env.OPENROUTER_API_KEY;
-
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: { message: 'OPENROUTER_API_KEY not configured' } }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    const { smiles, moleculeName, moleculeResult, model: requestedModel, thinking: thinkingEnabled } = await req.json();
 
     let userPrompt = `Generate a detailed chemistry report for the following molecule:\n\n`;
     userPrompt += `**SMILES:** ${smiles}\n`;
@@ -118,7 +110,10 @@ export default async (req: Request) => {
       if (p.HeavyAtomCount !== undefined) userPrompt += `- Heavy atoms: ${p.HeavyAtomCount}\n`;
     }
 
-    const model = 'openrouter/free';
+    // Groq API key — set GROQ_API_KEY in Netlify environment variables
+    const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+
+    const model = requestedModel || 'moonshotai/kimi-k2-instruct';
 
     const requestBody: Record<string, unknown> = {
       model,
@@ -130,6 +125,11 @@ export default async (req: Request) => {
       temperature: 0.7,
     };
 
+    // Qwen3 supports thinking mode via thinking parameter
+    if (thinkingEnabled && model === 'qwen/qwen3-32b') {
+      requestBody.thinking = { type: 'enabled', budget_tokens: 2048 };
+    }
+
     const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
     const MAX_RETRIES = 3;
     const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -138,15 +138,13 @@ export default async (req: Request) => {
     let data: unknown = null;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      if (attempt > 1) await sleep((attempt - 1) * 1200);
+      if (attempt > 1) await sleep((attempt - 1) * 1500);
 
-      lastResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      lastResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://quinone-task-ai.netlify.app',
-          'X-Title': 'QuantumTask - Molecular Property Analyzer',
         },
         body: JSON.stringify(requestBody),
       });
@@ -157,23 +155,20 @@ export default async (req: Request) => {
         parsed = await lastResponse.json();
         parseOk = true;
       } catch {
-        // HTML or empty response — retry
+        // Non-JSON response — retry
       }
 
       if (!parseOk) {
         if (attempt < MAX_RETRIES && RETRY_STATUSES.has(lastResponse.status)) continue;
         return new Response(
-          JSON.stringify({ error: { message: `OpenRouter returned a non-JSON response (HTTP ${lastResponse.status}). The free router is temporarily overloaded — please try again in a few seconds.`, retryable: true } }),
+          JSON.stringify({ error: { message: `Groq returned a non-JSON response (HTTP ${lastResponse.status}). Rate limit or temporary overload — please try again in a few seconds.`, retryable: true } }),
           { status: 502, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
         );
       }
 
       data = parsed;
 
-      // Success or a non-retryable error
       if (lastResponse.ok || !RETRY_STATUSES.has(lastResponse.status)) break;
-
-      // Retryable HTTP error with JSON body — keep retrying
       if (attempt < MAX_RETRIES) continue;
     }
 

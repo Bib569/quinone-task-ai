@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { Atom, FlaskConical, Search, ArrowRight, ArrowLeft, Loader2, BarChart3, FileText, Beaker, Sparkles, CheckCircle2, AlertCircle, Home, BookOpen } from 'lucide-react'
+import { Atom, FlaskConical, Search, ArrowRight, ArrowLeft, Loader2, BarChart3, FileText, Beaker, Sparkles, CheckCircle2, AlertCircle, Home, BookOpen, Brain, Zap, ChevronDown } from 'lucide-react'
 import MethodsLibrary from './components/MethodsLibrary'
 import ExportMenu from './components/ExportMenu'
 import { QUINONE_DATASET, findQuinone, type QuinoneEntry } from './lib/quinoneData'
@@ -99,8 +99,19 @@ function PropertyCard({ label, value, unit }: { label: string; value: string | n
   )
 }
 
+const GROQ_MODELS = [
+  { id: 'moonshotai/kimi-k2-instruct', label: 'Kimi K2',      sublabel: '1T MoE · Best', thinking: false },
+  { id: 'llama-3.3-70b-versatile',     label: 'Llama 3.3 70B', sublabel: 'Versatile',    thinking: false },
+  { id: 'qwen/qwen3-32b',              label: 'Qwen3 32B',     sublabel: 'Thinking',     thinking: true  },
+  { id: 'openai/gpt-oss-120b',         label: 'GPT-OSS 120B',  sublabel: 'OpenAI MoE',  thinking: false },
+]
+
 export default function App() {
   const [showLibrary, setShowLibrary] = useState(false)
+  const [selectedModel, setSelectedModel] = useState(GROQ_MODELS[0].id)
+  const [thinkingEnabled, setThinkingEnabled] = useState(false)
+  const [modelMenuOpen, setModelMenuOpen] = useState(false)
+  const modelMenuRef = useRef<HTMLDivElement>(null)
   const [state, setState] = useState<AnalysisState>({
     step: 1,
     smiles: '',
@@ -114,6 +125,16 @@ export default function App() {
   const updateState = (updates: Partial<AnalysisState>) => {
     setState(prev => ({ ...prev, ...updates }))
   }
+
+  const currentModel = GROQ_MODELS.find(m => m.id === selectedModel) || GROQ_MODELS[0]
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (modelMenuRef.current && !modelMenuRef.current.contains(e.target as Node)) setModelMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   const analyzeMolecule = async () => {
     if (!state.smiles.trim()) return
@@ -134,10 +155,13 @@ export default function App() {
       updateState({ moleculeResult: data, step: 2, loading: false })
     } catch (error) {
       const raw = error instanceof Error ? error.message : 'Analysis failed'
+      const is429 = raw.includes('429') || raw.toLowerCase().includes('rate limit')
       const is502 = raw.includes('502') || raw.toLowerCase().includes('overloaded')
       updateState({
-        error: is502
-          ? '⚠️ OpenRouter free router temporarily overloaded (502). The server retried 3× automatically. Please try again in a few seconds.'
+        error: is429
+          ? '⚠️ Groq rate limit reached (429). Please wait 10–30 seconds and try again.'
+          : is502
+          ? '⚠️ Groq temporarily unavailable (502). The server retried 3× automatically. Please try again in a few seconds.'
           : raw,
         loading: false,
       })
@@ -155,6 +179,8 @@ export default function App() {
           smiles: state.smiles,
           moleculeName: state.moleculeName,
           moleculeResult: state.moleculeResult,
+          model: selectedModel,
+          thinking: thinkingEnabled && currentModel.thinking,
         }),
       })
 
@@ -174,10 +200,13 @@ export default function App() {
       updateState({ llmReport: report, llmThinking: thinking, step: 4, loading: false })
     } catch (error) {
       const raw = error instanceof Error ? error.message : 'Report generation failed'
+      const is429 = raw.includes('429') || raw.toLowerCase().includes('rate limit')
       const is502 = raw.includes('502') || raw.toLowerCase().includes('overloaded')
       updateState({
-        error: is502
-          ? '⚠️ OpenRouter free router temporarily overloaded (502). The server retried 3× automatically. Please click "Generate AI Report" again in a few seconds.'
+        error: is429
+          ? '⚠️ Groq rate limit reached (429). Please wait 10–30 seconds and click "Generate AI Report" again.'
+          : is502
+          ? '⚠️ Groq temporarily unavailable (502). The server retried 3× automatically. Please click "Generate AI Report" again in a few seconds.'
           : raw,
         loading: false,
       })
@@ -253,7 +282,56 @@ export default function App() {
               <p className="text-xs text-gray-400">Molecular Property Analyzer</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Model Selector */}
+            <div ref={modelMenuRef} className="relative">
+              <button
+                onClick={() => setModelMenuOpen(o => !o)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 text-xs text-gray-300 hover:text-white transition-colors"
+                title="Select AI model"
+              >
+                <Zap size={12} className="text-quantum-400" />
+                <span className="hidden sm:inline">{currentModel.label}</span>
+                <ChevronDown size={11} className={`transition-transform ${modelMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {modelMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-52 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-30 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-gray-800 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Groq Models</div>
+                  {GROQ_MODELS.map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => { setSelectedModel(m.id); setModelMenuOpen(false); if (!m.thinking) setThinkingEnabled(false); }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 text-xs hover:bg-gray-800 transition-colors text-left ${
+                        m.id === selectedModel ? 'text-quantum-300 bg-quantum-900/20' : 'text-gray-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="font-medium">{m.label}</div>
+                        <div className="text-[10px] text-gray-500 mt-0.5">{m.sublabel}</div>
+                      </div>
+                      {m.thinking && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">THINK</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Thinking Toggle — only for Qwen3 */}
+            {currentModel.thinking && (
+              <button
+                onClick={() => setThinkingEnabled(t => !t)}
+                title="Toggle thinking mode"
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  thinkingEnabled
+                    ? 'bg-purple-600/20 border-purple-500/50 text-purple-300'
+                    : 'bg-gray-800 border-gray-700 text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <Brain size={12} />
+                <span className="hidden sm:inline">Think</span>
+              </button>
+            )}
+
             <a
               href="/"
               onClick={(e) => { e.preventDefault(); resetAnalysis(); }}
@@ -578,7 +656,7 @@ export default function App() {
         <div className="mt-2 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900 border border-gray-800 text-xs text-gray-500">
             <Beaker size={12} />
-            Powered by OpenRouter Free Router via OpenRouter | DFT B3LYP/6-31G* quinone dataset (25 molecules) | PubChem API
+            Powered by Groq ({currentModel.label}{thinkingEnabled && currentModel.thinking ? ' · Thinking' : ''}) | DFT B3LYP/6-31G* quinone dataset (25 molecules) | PubChem API
           </div>
         </div>
       </main>
