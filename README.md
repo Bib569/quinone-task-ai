@@ -222,7 +222,7 @@ Uncertainty: ±0.3–0.5 eV typical. Displayed as orange bar in the chart with a
 2. **Recharts visualization** — Interactive bar chart with family-based color coding and tooltip
 3. **Groq backend** — Netlify Functions keep the API key server-side; OpenAI-compatible endpoint, no CORS issues
 4. **Model selector** — Dropdown in header right-hand side; auto-disables thinking toggle for non-supporting models
-5. **Thinking toggle** — Purple brain icon for Qwen3 32B; sends `thinking: {type: 'enabled', budget_tokens: 2048}` to Groq
+5. **Thinking toggle** — Purple brain icon for Qwen3 32B; sends `reasoning_effort: 'default'` + `reasoning_format: 'parsed'` to Groq; reasoning returned in `message.reasoning` field
 6. **3× auto-retry** — Transparent server-side retry with 1.5 s / 3.0 s backoff; handles 429/502/503
 7. **Embedded dataset** — Zero-latency DFT lookups without a database
 8. **Multi-format export** — jsPDF (Latin-1 sanitised) + docx for offline archival of AI reports
@@ -233,6 +233,7 @@ Uncertainty: ±0.3–0.5 eV typical. Displayed as orange bar in the chart with a
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.6.1 | Mar 2026 | **Fix thinking mode**: replace invalid `thinking` param with correct Groq `reasoning_effort=default` + `reasoning_format=parsed` for Qwen3 32B |
 | 1.6.0 | Mar 2026 | **Groq API migration**: model selector dropdown (Kimi K2 / Llama 3.3 / Qwen3 / GPT-OSS), thinking mode toggle for Qwen3 32B, 429 rate-limit error handling |
 | 1.5.0 | Mar 2026 | PDF export garbled character fix (`sanitiseForPDF` Latin-1 sanitisation) |
 | 1.4.0 | Mar 2026 | Server-side 3× retry for 502/503/429; improved error messages |
